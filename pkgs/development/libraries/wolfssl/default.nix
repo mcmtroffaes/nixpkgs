@@ -2,28 +2,22 @@
 
 stdenv.mkDerivation rec {
   pname = "wolfssl";
-  version = "4.5.0";
+  version = "4.6.0";
 
   src = fetchFromGitHub {
     owner = "wolfSSL";
     repo = "wolfssl";
     rev = "v${version}-stable";
-    sha256 = "138ppnwkqkfi7nnqpd0b93dqaph72ma65m9286bz2qzlis1x8r0v";
+    sha256 = "0hk3bnzznxj047gwxdxw2v3w6jqq47996m7g72iwj6c2ai9g6h4m";
   };
 
-  configureFlags = [ "--enable-all" ];
+  # same as Debian; tracks the published ABI more closely
+  configureFlags = [ "--enable-distro --enable-pkcs11 --enable-tls13 --enable-base64encode" ];
 
-  outputs = [ "out" "dev" "doc" "lib" ];
+  # cyclic reference between wolfssl-config in -dev and libtool's .la file in -lib
+  outputs = [ "out" "doc" ];
 
   nativeBuildInputs = [ autoreconfHook ];
-
-  postInstall = ''
-     # fix recursive cycle:
-     # wolfssl-config points to dev, dev propagates bin
-     moveToOutput bin/wolfssl-config "$dev"
-     # moveToOutput also removes "$out" so recreate it
-     mkdir -p "$out"
-  '';
 
   meta = with lib; {
     description = "A small, fast, portable implementation of TLS/SSL for embedded devices";
