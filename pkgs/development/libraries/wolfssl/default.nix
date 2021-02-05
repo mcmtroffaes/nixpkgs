@@ -11,13 +11,31 @@ stdenv.mkDerivation rec {
     sha256 = "0hk3bnzznxj047gwxdxw2v3w6jqq47996m7g72iwj6c2ai9g6h4m";
   };
 
-  # same as Debian; tracks the published ABI more closely
-  configureFlags = [ "--enable-distro --enable-pkcs11 --enable-tls13 --enable-base64encode" ];
+  # almost same as Debian but for now using --enable-all instead of --enable-distro to ensure options.h gets installed
+  configureFlags = [ "--enable-all --enable-pkcs11 --enable-tls13 --enable-base64encode" ];
 
-  # cyclic reference between wolfssl-config in -dev and libtool's .la file in -lib
-  outputs = [ "out" "doc" ];
+  outputs = [ "out" "dev" "doc" "lib" ];
 
   nativeBuildInputs = [ autoreconfHook ];
+
+  postPatch = ''
+     # fix recursive cycle:
+     # build flags (including location of header files) are exposed in the
+     # public API of wolfssl, causing lib to depend on dev
+     substituteInPlace configure.ac \
+       --replace '#define LIBWOLFSSL_CONFIGURE_ARGS \"$ac_configure_args\"' ' '
+     substituteInPlace configure.ac \
+       --replace '#define LIBWOLFSSL_GLOBAL_CFLAGS \"$CPPFLAGS $AM_CPPFLAGS $CFLAGS $AM_CFLAGS\"' ' '
+  '';
+
+
+  postInstall = ''
+     # fix recursive cycle:
+     # wolfssl-config points to dev, dev propagates bin
+     moveToOutput bin/wolfssl-config "$dev"
+     # moveToOutput also removes "$out" so recreate it
+     mkdir -p "$out"
+  '';
 
   meta = with lib; {
     description = "A small, fast, portable implementation of TLS/SSL for embedded devices";
